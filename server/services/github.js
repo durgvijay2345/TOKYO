@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const BASE_URL = 'https://api.github.com';
+const BASE_URL = process.env.GITHUB_API_URL || 'https://api.github.com';
 
 function parseRepoUrl(url) {
   const cleaned = url.replace(/\.git$/, '').replace(/\/$/, '');

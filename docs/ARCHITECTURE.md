@@ -2,75 +2,49 @@
 
 ## Overview
 
-3-tier architecture: React frontend, Express.js API with AI module, MongoDB + GitHub API data layer.
+A strictly decoupled 3-tier MVC architecture: React frontend, Node/Express.js backend, and a robust MongoDB Data Layer heavily integrated with Google Gemini LLMs.
 
 ## Data Flow
 
-```
+```text
 User enters repo URL
        |
        v
-  React App          POST /api/analyze       Express API
-  (Vite)          ---------------------->     Server
+  React App          POST /api/analyze       Express Router
+  (Vite)          ---------------------->     (routes/api.js)
        ^                                        |
        |                                        v
-       |                                  Check Cache
+       |                                  analysisController.js
+       |                                        |
+       |                                  Check Cache (cache.js)
        |                                  Memory -> MongoDB
        |                                        |  miss
        |                                        v
-       |                                  GitHub Service
+       |                                  GitHub Service (github.js)
        |                                  (paginated fetch)
        |                                        |
        |                                        v
-       |                                  Analysis Engine
-       |                                  -> classifier.js
-       |                                  -> impact.js
-       |        JSON Response             -> insights.js
-       | <------------------------------        |
-       |                                  Store in cache + DB
+       |                                  Analysis Engine (analyzer.js)
+       |                                        |--> ai/gemini.js (Google Gemini API)
+       |                                        |--> ai/insights.js
+       |        JSON Response                   |
+       | <------------------------------  Store in DB (database.js -> models/Analysis.js)
 ```
 
-## Modules
+## Backend MVC Structure
 
-### Frontend
-- **App.jsx** — App shell, state routing (landing/loading/dashboard)
-- **Dashboard.jsx** — Composes visualization components
-- **ContributionChart.jsx** — Recharts bar + pie
-- **CommitTimeline.jsx** — Stacked area chart
-- **ActivityHeatmap.jsx** — Custom SVG heatmap
-- **ContributorCard.jsx** — Profile cards with stats
-- **HealthIndicators.jsx** — SVG gauge charts + bus factor
-- **InsightsPanel.jsx** — Insight cards + churn table
-- **AnalysisHistory.jsx** — Past analyses from MongoDB
+### Models (`/models/`)
+- Mongoose Subdocument schemas enforcing strict typing: `Analysis.js`, `Commit.js`, `Contributor.js`, `Insight.js`.
 
-### Backend
-- **routes/api.js** — REST endpoints with cache lookup
-- **services/github.js** — GitHub API client, pagination, rate limiting
-- **services/analyzer.js** — Analysis pipeline orchestrator
-- **services/cache.js** — node-cache wrapper, 10-min TTL
-- **services/database.js** — MongoDB via Mongoose (analyses collection)
+### Controllers (`/controllers/`)
+- Pure business logic stripping out URL request handling: `analysisController.js`, `commitController.js`, `contributorController.js`, `insightController.js`.
 
-### AI Module
-- **classifier.js** — Conventional prefix detection + weighted keyword matching
-- **impact.js** — Impact model: `(log2(1+changes)*2 + breadth) * critical * class`
-- **insights.js** — 7 pattern detectors (workload, bus factor, churn, health, etc.)
+### Routes (`/routes/`)
+- Declarative mapping layer: `api.js`, `commits.js`, `contributors.js`, `insights.js`.
 
-## Cache Strategy
+### Services (`/services/`)
+- Workhorses of the API: `github.js` (fetching bounds), `database.js` (MongoDB ORM wrapped), `analyzer.js` (orchestration), `cache.js` (in-memory L1 buffer).
 
-```
-Request -> Memory Cache (10 min TTL)
-               | hit -> return
-               | miss
-          MongoDB (persistent)
-               | hit (< 10 min) -> return + refresh memory
-               | miss
-          GitHub API -> Analyze -> Store in both
-```
-
-## Health Score
-
-| Component | Weight | Formula |
-|-----------|--------|---------|
-| Contribution balance | 35% | `100 - avg_deviation * 50` |
-| Commit quality | 35% | `100 - other_ratio * 60` |
-| Activity consistency | 30% | `(active_days / span) * 200` capped at 100 |
+## AI Module
+- **gemini.js** — Replaced all legacy heuristic ML code. Directly requests structured JSON outputs from `gemini-2.5-flash` natively to semantically classify commits and grade their impact value based on true code complexity.
+- **insights.js** — Synthesizes mathematical distributions (churn ratios, bus factor arrays) into human-readable action-items.

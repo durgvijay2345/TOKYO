@@ -53,6 +53,9 @@ The application is built on a strictly decoupled **MVC (Model-View-Controller)**
    GITHUB_TOKEN=your_github_personal_access_token
    GEMINI_API_KEY=your_google_gemini_api_key
 
+   # GitHub Enterprise (Optional)
+   # GITHUB_API_URL=https://github.yourcompany.com/api/v3
+
    # Database
    MONGODB_URI=mongodb://localhost:27017/tokyo_pulse
 
